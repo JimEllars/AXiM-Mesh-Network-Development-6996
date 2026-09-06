@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
-import '../failover-planner.css';
 
 const gatewayOptions = [
   { name: 'East Gateway', region: 'East District', load: 89, latency: 21, clients: 318, status: 'Attention' },

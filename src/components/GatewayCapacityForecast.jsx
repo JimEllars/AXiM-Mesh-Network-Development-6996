@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
-import '../capacity-forecast.css';
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 
 const gateways = [
   { name: 'Central Gateway', region: 'Central Hub', load: 42, capacity: 82, clients: 684, color: 'lime' },
@@ -202,4 +202,11 @@ function ForecastStat({ label, value, warning }) {
   );
 }
 
-export default GatewayCapacityForecast;
+
+const GatewayCapacityForecastWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <GatewayCapacityForecast {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default GatewayCapacityForecastWithErrorBoundary;

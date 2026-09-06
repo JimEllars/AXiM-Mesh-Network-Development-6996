@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 
 const { FiMaximize2, FiMoreHorizontal, FiRadio, FiRefreshCw } = FiIcons;
 
@@ -75,4 +76,11 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
   );
 }
 
-export default NetworkTopology;
+
+const NetworkTopologyWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <NetworkTopology {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default NetworkTopologyWithErrorBoundary;

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 
 function NodeTrendChart({ values, labels, range }) {
   const [selectedPoint, setSelectedPoint] = useState(values.length - 1);
@@ -96,4 +97,11 @@ function NodeTrendChart({ values, labels, range }) {
   );
 }
 
-export default NodeTrendChart;
+
+const NodeTrendChartWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <NodeTrendChart {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default NodeTrendChartWithErrorBoundary;

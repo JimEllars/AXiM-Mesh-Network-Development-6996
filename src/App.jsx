@@ -10,14 +10,14 @@ import DeployModal from './components/DeployModal';
 import NodeDetailModal from './components/NodeDetailModal';
 import DeploymentTracker from './components/DeploymentTracker';
 import WorkspacePage from './components/WorkspacePage';
-import { metrics } from './data/networkData';
+import { useMeshTelemetry } from './services/telemetryService';
 import './App.css';
 import './functional.css';
-import './handshake.css';
 
 const deploymentStorageKey = 'axim-deployment-handshakes';
 
 function App() {
+  const { metrics } = useMeshTelemetry();
   const [activePage, setActivePage] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
@@ -27,14 +27,19 @@ function App() {
   const [toast, setToast] = useState('');
   const [deployments, setDeployments] = useState(() => {
     try {
-      return JSON.parse(window.localStorage.getItem(deploymentStorageKey)) || [];
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return JSON.parse(window.localStorage.getItem(deploymentStorageKey)) || [];
+      }
+      return [];
     } catch {
       return [];
     }
   });
 
   useEffect(() => {
-    window.localStorage.setItem(deploymentStorageKey, JSON.stringify(deployments));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(deploymentStorageKey, JSON.stringify(deployments));
+    }
   }, [deployments]);
 
   const showToast = (message) => {

@@ -41,8 +41,11 @@ export const initialSecurityEvents = [
 
 export function loadSecurityEvents() {
   try {
-    const stored = window.localStorage.getItem(securityEventsStorageKey);
-    return stored ? JSON.parse(stored) : initialSecurityEvents;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = window.localStorage.getItem(securityEventsStorageKey);
+      return stored ? JSON.parse(stored) : initialSecurityEvents;
+    }
+    return initialSecurityEvents;
   } catch {
     return initialSecurityEvents;
   }

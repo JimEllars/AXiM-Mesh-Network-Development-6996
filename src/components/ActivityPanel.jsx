@@ -1,7 +1,8 @@
 import React from 'react';
+import { useMeshTelemetry } from '../services/telemetryService';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { activity } from '../data/networkData';
+
 
 const { FiAlertTriangle, FiCheck, FiChevronRight, FiGitCommit } = FiIcons;
 
@@ -12,6 +13,7 @@ const activityIcons = {
 };
 
 function ActivityPanel() {
+  const { activity } = useMeshTelemetry();
   return (
     <section className="panel activity-panel">
       <div className="panel-heading">
