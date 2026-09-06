@@ -168,6 +168,7 @@ function App() {
         onNavigate={navigate}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        user={user}
       />
 
       <main className="main-content">
