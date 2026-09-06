@@ -22,7 +22,7 @@ function NodeTable({ search, onSelectNode }) {
           <SafeIcon icon={FiSliders} /> {warningsOnly ? 'Warnings' : 'Filter'}
         </button>
       </div>
-      <div className="table-wrap">
+      <div className="table-wrap overflow-x-auto">
         <table>
           <thead><tr><th>Node</th><th>Status</th><th>Load</th><th>Latency</th><th>Clients</th><th /></tr></thead>
           <tbody>
@@ -44,4 +44,12 @@ function NodeTable({ search, onSelectNode }) {
   );
 }
 
-export default NodeTable;
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
+
+const NodeTableWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <NodeTable {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default NodeTableWithErrorBoundary;

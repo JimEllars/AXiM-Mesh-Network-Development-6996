@@ -129,7 +129,7 @@ function GatewayCapacityForecast({ onToast }) {
         <ForecastStat label="Connected clients" value={gateway.clients.toLocaleString()} />
       </div>
 
-      <div className="forecast-chart">
+      <div className="forecast-chart overflow-x-auto">
         <div className="forecast-axis">
           <span>100%</span>
           <span>{gateway.capacity}% target</span>
