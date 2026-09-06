@@ -42,12 +42,23 @@ export const metrics = [
   }
 ];
 
+// Phase E: Locked RF Parameter Baseline Alignment
+export const defaultRFProfile = {
+  frequency: '927.875 MHz',
+  bandwidth: '250 kHz',
+  spreadingFactor: 'SF9',
+  codingRate: '4/5',
+  txPower: '+22 dBm',
+  maxHops: 4,
+  role: 'Pure Router/Repeater'
+};
+
 export const nodes = [
-  { id: 'AX-CORE-01', region: 'Central Hub', status: 'Online', load: 42, latency: '3 ms', clients: 184 },
-  { id: 'AX-NORTH-04', region: 'North Campus', status: 'Online', load: 68, latency: '8 ms', clients: 127 },
-  { id: 'AX-EAST-12', region: 'East District', status: 'Warning', load: 89, latency: '21 ms', clients: 96 },
-  { id: 'AX-WEST-07', region: 'West Campus', status: 'Online', load: 54, latency: '6 ms', clients: 153 },
-  { id: 'AX-SOUTH-09', region: 'South District', status: 'Online', load: 37, latency: '9 ms', clients: 112 }
+  { id: 'AX-CORE-01', region: 'Central Hub', status: 'Online', load: 42, latency: '3 ms', clients: 184, profile: defaultRFProfile },
+  { id: 'AX-NORTH-04', region: 'North Campus', status: 'Online', load: 68, latency: '8 ms', clients: 127, profile: defaultRFProfile },
+  { id: 'AX-EAST-12', region: 'East District', status: 'Warning', load: 89, latency: '21 ms', clients: 96, profile: defaultRFProfile },
+  { id: 'AX-WEST-07', region: 'West Campus', status: 'Online', load: 54, latency: '6 ms', clients: 153, profile: defaultRFProfile },
+  { id: 'AX-SOUTH-09', region: 'South District', status: 'Online', load: 37, latency: '9 ms', clients: 112, profile: defaultRFProfile }
 ];
 
 export const activity = [
