@@ -248,6 +248,19 @@ async function generateBriefing(env: Env) {
           <td style="padding: 8px; border-bottom: 1px solid #333;">${lowBatteryRepeaters}</td>
         </tr>
       </table>
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #333;">
+        <h3 style="color: #ff6b6b; margin-bottom: 8px;">Action Required (HITL Decision Layer)</h3>
+        <p style="font-size: 13px; color: #aeb7c5;">
+          ${lowBatteryRepeaters > 0
+            ? `Alert: ${lowBatteryRepeaters} repeater(s) reporting critical battery (< 20%). Review routing failover.`
+            : 'High Utilization / Anomaly Routing: Verify gateway balance or isolate unresponsive nodes.'}
+        </p>
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <a href="https://${workerDomain}/api/v1/mesh/action?token=${token}&decision=failover" style="display: block; background: #3b82f6; color: #fff; text-decoration: none; padding: 12px; text-align: center; border-radius: 6px; font-weight: bold; font-size: 13px;">[ Trigger Gateway Failover ]</a>
+          <a href="https://${workerDomain}/api/v1/mesh/action?token=${token}&decision=isolate" style="display: block; background: #ef4444; color: #fff; text-decoration: none; padding: 12px; text-align: center; border-radius: 6px; font-weight: bold; font-size: 13px;">[ Isolate Anomaly Node ]</a>
+          <a href="https://mesh.axim.us.com" style="display: block; background: #262f3d; color: #cbd3df; text-decoration: none; padding: 12px; text-align: center; border-radius: 6px; font-weight: bold; font-size: 13px;">[ Inspect Topology in Cockpit ]</a>
+        </div>
+      </div>
     </div>
   `;
 

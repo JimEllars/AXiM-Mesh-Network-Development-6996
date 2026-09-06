@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 import SafeIcon from '../common/SafeIcon';
 import { emitTelemetryEvent } from '../services/telemetryService';
 
@@ -63,11 +64,11 @@ function NodeDetailModal({ node, onClose }) {
             </div>
             <Detail label="Battery Voltage" value={
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                 4,120 mV <SafeIcon name="BatteryCharging" size={14} />
+                 {node.battery_mv ? `${node.battery_mv} mV` : '4,120 mV'} <SafeIcon name="BatteryCharging" size={14} />
               </span>
             } />
-            <Detail label="Power Input" value="5.2 V Solar Array (WisBlock Solar Base)" />
-            <Detail label="Signal Link Quality" value="SNR: +9.2 dB, RSSI: -88 dBm, Hop Count: 1 of 4" />
+            <Detail label="Power Input" value={node.power_source || '5.2 V Solar Array (WisBlock Solar Base)'} />
+            <Detail label="Signal Link Quality" value={node.snr ? `SNR: ${node.snr} dB, RSSI: ${node.rssi || -88} dBm, Hop Count: ${node.hop_count || 1} of 4` : 'SNR: +9.2 dB, RSSI: -88 dBm, Hop Count: 1 of 4'} />
             <Detail label="Traffic Performance" value={`Load ${node.load}%, Latency ${node.latency}, Connected Clients ${node.clients}`} />
           </div>
         ) : (
@@ -103,4 +104,9 @@ function Detail({ label, value }) {
   );
 }
 
-export default NodeDetailModal;
+const NodeDetailModalWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <NodeDetailModal {...props}/>
+  </ComponentErrorBoundary>
+);
+export default NodeDetailModalWithErrorBoundary;
