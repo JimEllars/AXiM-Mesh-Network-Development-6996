@@ -86,4 +86,12 @@ function SecurityEventQueue({ events, onSelect, onResolveAll }) {
   );
 }
 
-export default SecurityEventQueue;
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
+
+const SecurityEventQueueWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <SecurityEventQueue {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default SecurityEventQueueWithErrorBoundary;

@@ -40,31 +40,17 @@ const pageContent = {
 const trafficBars = [42, 58, 48, 70, 63, 77, 68, 88, 72, 94, 81, 86];
 
 function WorkspacePage({ page, onToast }) {
-  const { nodes, securityEvents } = useMeshTelemetry();
+  const { nodes, securityEvents, updateSecurityEvents } = useMeshTelemetry();
 
   const content = pageContent[page];
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [events, setEvents] = useState(securityEvents || []);
-
-  useEffect(() => {
-    if (securityEvents) {
-      setEvents(current => current.length === 0 ? securityEvents : current);
-    }
-  }, [securityEvents]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem('axim-security-events', JSON.stringify(events));
-    }
-  }, [events]);
-
   const openEvents = useMemo(
-    () => events.filter((event) => event.status === 'Open'),
-    [events]
+    () => securityEvents.filter((event) => event.status === 'Open'),
+    [securityEvents]
   );
 
   const resolveEvent = (note = '') => {
-    setEvents((current) => current.map((event) => (
+    updateSecurityEvents((current) => current.map((event) => (
       event.id === selectedEvent.id
         ? {
             ...event,
@@ -84,7 +70,7 @@ function WorkspacePage({ page, onToast }) {
   };
 
   const reopenEvent = () => {
-    setEvents((current) => current.map((event) => (
+    updateSecurityEvents((current) => current.map((event) => (
       event.id === selectedEvent.id
         ? { ...event, status: 'Open', resolvedAt: '', resolutionNote: '' }
         : event
@@ -101,7 +87,7 @@ function WorkspacePage({ page, onToast }) {
       minute: '2-digit'
     });
 
-    setEvents((current) => current.map((event) => (
+    updateSecurityEvents((current) => current.map((event) => (
       event.status === 'Open'
         ? {
             ...event,
@@ -183,12 +169,12 @@ function WorkspacePage({ page, onToast }) {
           />
           <SummaryCard
             label="Resolved today"
-            value={events.filter((event) => event.status === 'Resolved').length.toString().padStart(2, '0')}
+            value={securityEvents.filter((event) => event.status === 'Resolved').length.toString().padStart(2, '0')}
             detail="Audit trail maintained"
             tone="lime"
           />
           <SummaryCard label="Encrypted links" value="100%" detail="No unencrypted routes" tone="blue" />
-          <SecurityEventQueue events={events} onSelect={setSelectedEvent} onResolveAll={resolveAll} />
+          <SecurityEventQueue events={securityEvents} onSelect={setSelectedEvent} onResolveAll={resolveAll} />
         </div>
       )}
 

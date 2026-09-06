@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import SafeIcon from '../common/SafeIcon';
+import { defaultRFProfile } from '../data/networkData';
+import { registerNode, emitTelemetryEvent } from '../services/telemetryService';
 
 const handshakeStages = [
   {
@@ -32,8 +34,10 @@ function DeployModal({
   initialNodeName = 'AX-NODE-253',
   initialZone = 'Central campus'
 }) {
-  const [nodeName, setNodeName] = useState(initialNodeName);
+const [nodeName, setNodeName] = useState(initialNodeName);
   const [zone, setZone] = useState(initialZone);
+  const [cidr, setCidr] = useState('');
+  const [gateway, setGateway] = useState('Auto-assign');
   const [stage, setStage] = useState(-1);
   const [attempt, setAttempt] = useState(1);
   const [startedAt, setStartedAt] = useState(null);
@@ -78,6 +82,27 @@ function DeployModal({
   useEffect(() => {
     if (!complete || !startedAt) return;
 
+    const newNode = {
+      id: nodeName.trim(),
+      region: zone,
+      status: 'Online',
+      load: 0,
+      latency: '0 ms',
+      clients: 0,
+      profile: defaultRFProfile
+    };
+
+    registerNode(newNode);
+
+    emitTelemetryEvent({
+      type: 'activity',
+      data: {
+        title: 'New node enrolled and verified',
+        meta: `${nodeName.trim()} · ${zone} · Just now`,
+        type: 'success'
+      }
+    });
+
     onComplete?.({
       id: `${nodeName}-${Date.now()}`,
       nodeName: nodeName.trim(),
@@ -99,6 +124,11 @@ function DeployModal({
   const beginDeployment = () => {
     if (!nodeName.trim()) {
       setError('Enter a node name to continue.');
+      return;
+    }
+    const cidrRegex = /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))$/;
+    if (cidr && !cidrRegex.test(cidr)) {
+      setError('Enter a valid CIDR assignment (e.g. 10.0.0.0/24).');
       return;
     }
 
@@ -150,6 +180,26 @@ function DeployModal({
                 <option>North campus</option>
                 <option>East district</option>
                 <option>West campus</option>
+              </select>
+            </label>
+
+            <label>
+              IP CIDR Assignment
+              <input
+                placeholder="e.g. 10.0.0.0/24"
+                value={cidr}
+                onChange={(event) => setCidr(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Gateway Assignment
+              <select value={gateway} onChange={(event) => setGateway(event.target.value)}>
+                <option>Auto-assign</option>
+                <option>Central Gateway</option>
+                <option>North Gateway</option>
+                <option>East Gateway</option>
+                <option>West Gateway</option>
               </select>
             </label>
 

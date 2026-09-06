@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
+import { emitTelemetryEvent } from '../services/telemetryService';
 
 const gatewayOptions = [
   { name: 'East Gateway', region: 'East District', load: 89, latency: 21, clients: 318, status: 'Attention' },
@@ -63,6 +64,14 @@ function GatewayFailoverPlanner({ onToast }) {
     window.setTimeout(() => {
       setRunning(false);
       setCompleted(true);
+      emitTelemetryEvent({
+        type: 'activity',
+        data: {
+          title: 'Gateway failover executed',
+          meta: `${source} → ${target} · Just now`,
+          type: 'info'
+        }
+      });
       onToast?.(`Failover executed: ${source} → ${target}`);
     }, 1150);
   };

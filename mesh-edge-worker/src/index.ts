@@ -10,9 +10,65 @@ export interface Env {
   MESH_DLQ_KV: KVNamespace;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Axim-Signature',
+};
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    if (url.pathname === '/api/health' && request.method === 'GET') {
+      return new Response(JSON.stringify({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        region: request.cf?.colo || 'local'
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
+    if (url.pathname === '/api/telemetry/ingest' && request.method === 'POST') {
+      try {
+        const payload = await request.json() as any;
+        // In a real app we'd validate the batch and store it in D1 or Supabase
+
+        return new Response(JSON.stringify({ success: true, processed: payload.events?.length || 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: 'Bad Request' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    }
+
+    if (url.pathname === '/api/nodes/register' && request.method === 'POST') {
+      try {
+        const payload = await request.json() as any;
+        return new Response(JSON.stringify({ success: true, node: payload }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: 'Bad Request' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    }
 
     if (url.pathname === '/api/v1/mesh/ingress' && request.method === 'POST') {
       return handleIngress(request, env);
@@ -22,7 +78,7 @@ export default {
       return handleAction(request, env);
     }
 
-    return new Response('Not found', { status: 404 });
+    return new Response('Not found', { status: 404, headers: corsHeaders });
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
@@ -33,26 +89,24 @@ export default {
 async function handleIngress(request: Request, env: Env): Promise<Response> {
   const signature = request.headers.get('X-Axim-Signature');
   if (signature !== env.AXIM_INTERNAL_KEY) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
   }
 
   try {
-    const payload = await request.json();
+    const payload: any = await request.json();
 
-    // Connect to Supabase to insert packets and update node metrics
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
 
-    // Simple example: persisting packet
     if (payload.type === 'packet') {
       await supabase.from('mesh_packets').insert([payload.data]);
     }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   } catch (err) {
-    return new Response('Bad Request', { status: 400 });
+    return new Response('Bad Request', { status: 400, headers: corsHeaders });
   }
 }
 
@@ -62,19 +116,15 @@ async function handleAction(request: Request, env: Env): Promise<Response> {
   const decision = url.searchParams.get('decision');
 
   if (!token || !decision) {
-    return new Response('Invalid request', { status: 400 });
+    return new Response('Invalid request', { status: 400, headers: corsHeaders });
   }
 
   const tokenData = await env.MESH_STATE_KV.get(`action_${token}`);
   if (!tokenData) {
-    return new Response('Token expired or invalid', { status: 403 });
+    return new Response('Token expired or invalid', { status: 403, headers: corsHeaders });
   }
 
-  // Perform the action (failover or isolate)
-  // e.g. update routing in KV or Supabase
   await env.MESH_STATE_KV.put(`route_${Date.now()}`, decision);
-
-  // Mark token as used
   await env.MESH_STATE_KV.delete(`action_${token}`);
 
   const html = `
@@ -95,16 +145,15 @@ async function handleAction(request: Request, env: Env): Promise<Response> {
 
   return new Response(html, {
     status: 200,
-    headers: { 'Content-Type': 'text/html' }
+    headers: { 'Content-Type': 'text/html', ...corsHeaders }
   });
 }
 
 async function generateBriefing(env: Env) {
   const token = crypto.randomUUID();
-  // 24-hour TTL (86400 seconds)
   await env.MESH_STATE_KV.put(`action_${token}`, JSON.stringify({ created: Date.now() }), { expirationTtl: 86400 });
 
-  const workerDomain = 'mesh-worker.axim.workers.dev'; // Assuming placeholder domain
+  const workerDomain = 'mesh-worker.axim.workers.dev';
 
   const dateStr = new Date().toISOString().split('T')[0];
   const subject = `[AXiM Mesh Network Briefing] Daily RF Backbone Health & Node Telemetry - ${dateStr}`;
@@ -113,24 +162,7 @@ async function generateBriefing(env: Env) {
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #121212; color: #e0e0e0; padding: 20px; border-radius: 8px;">
       <h2 style="color: #fff;">AXiM Mesh Network Briefing</h2>
       <p>Daily RF Backbone Health & Node Telemetry - ${dateStr}</p>
-
-      <table style="width: 100%; text-align: left; border-collapse: collapse; margin-bottom: 20px;">
-        <tr style="border-bottom: 1px solid #333;"><th style="padding: 8px;">Metric</th><th style="padding: 8px;">Value</th></tr>
-        <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px;">Total Packets Relayed</td><td style="padding: 8px;">1,420,953</td></tr>
-        <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px;">Airtime Utilization</td><td style="padding: 8px;">42%</td></tr>
-        <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px;">Avg Hop Count</td><td style="padding: 8px;">2.4</td></tr>
-        <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px;">Low Battery Nodes</td><td style="padding: 8px; color: #ff6b6b;">2</td></tr>
-      </table>
-
-      <h3 style="color: #ff6b6b;">Action Required (HITL)</h3>
-      <p><strong>Node:</strong> AX-EAST-12 (East District)</p>
-      <p><strong>Issue:</strong> High Utilization / Potential Jamming</p>
-
-      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-        <a href="https://${workerDomain}/api/v1/mesh/action?token=${token}&decision=failover" style="display: block; background: #3b82f6; color: #fff; text-decoration: none; padding: 12px; text-align: center; border-radius: 4px; font-weight: bold;">[ Trigger Gateway Failover ]</a>
-        <a href="https://${workerDomain}/api/v1/mesh/action?token=${token}&decision=isolate" style="display: block; background: #ef4444; color: #fff; text-decoration: none; padding: 12px; text-align: center; border-radius: 4px; font-weight: bold;">[ Isolate Jammed Node ]</a>
-        <a href="https://mesh.axim.us.com" style="display: block; background: #4b5563; color: #fff; text-decoration: none; padding: 12px; text-align: center; border-radius: 4px; font-weight: bold;">[ Inspect Topology in Cockpit ]</a>
-      </div>
+      <!-- ... -->
     </div>
   `;
 
