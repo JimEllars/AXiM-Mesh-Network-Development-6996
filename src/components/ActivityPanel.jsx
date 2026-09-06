@@ -13,7 +13,24 @@ const activityIcons = {
 };
 
 function ActivityPanel() {
-  const { activity } = useMeshTelemetry();
+  const { activity, securityEvents } = useMeshTelemetry();
+
+  let score = 100;
+  if (securityEvents) {
+    securityEvents.forEach(event => {
+      if (event.status === 'Open') {
+        if (event.severity === 'High') {
+          score -= 15;
+        } else if (event.severity === 'Low' || event.severity === 'Medium') {
+          score -= 5;
+        }
+      }
+    });
+  }
+  score = Math.max(0, Math.min(100, score));
+
+  const isWarning = score < 85;
+
   return (
     <section className="panel activity-panel">
       <div className="panel-heading">
@@ -43,14 +60,16 @@ function ActivityPanel() {
 
       <div className="security-card">
         <div className="security-score">
-          <strong>98</strong>
+          <strong style={{ color: isWarning ? 'var(--orange)' : 'var(--lime)' }}>{score}</strong>
           <span>/ 100</span>
         </div>
         <div>
           <p>Security posture</p>
-          <strong>All systems protected</strong>
+          <strong style={{ color: isWarning ? 'var(--orange)' : 'var(--lime)' }}>
+            {isWarning ? 'Attention required' : 'All systems protected'}
+          </strong>
         </div>
-        <span className="pulse-dot" />
+        <span className="pulse-dot" style={{ background: isWarning ? 'var(--orange)' : 'var(--lime)', boxShadow: isWarning ? '0 0 0 5px rgba(255, 172, 102, 0.08)' : '0 0 0 5px rgba(184, 243, 74, 0.08)' }} />
       </div>
     </section>
   );

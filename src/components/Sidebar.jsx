@@ -5,7 +5,7 @@ import { navigation } from '../data/networkData';
 
 const { FiHexagon, FiSettings, FiHelpCircle, FiX } = FiIcons;
 
-function Sidebar({ activePage, onNavigate, open, onClose }) {
+function Sidebar({ activePage, onNavigate, open, onClose, user }) {
   return (
     <>
       <button
@@ -55,10 +55,14 @@ function Sidebar({ activePage, onNavigate, open, onClose }) {
             <span>Settings</span>
           </button>
           <div className="operator-card">
-            <div className="avatar">JM</div>
+            <div className="avatar">
+              {user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'JM'}
+            </div>
             <div>
-              <strong>Jordan Miller</strong>
-              <span>Network operator</span>
+              <strong>{user?.name || 'Jordan Miller'}</strong>
+              <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: 'rgba(59, 130, 246, 0.2)', color: '#62a8ff', borderRadius: '4px', textTransform: 'uppercase', display: 'inline-block', marginTop: '4px' }}>
+                {user?.role ? user.role.replace('_', ' ') : 'Network operator'}
+              </span>
             </div>
             <span className="online-dot" />
           </div>
