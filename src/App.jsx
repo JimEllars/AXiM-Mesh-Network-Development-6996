@@ -201,7 +201,7 @@ function App() {
               <div className="dashboard-grid">
                 <NetworkTopology
                   selected={selectedNode?.id || 'core'}
-                  onSelect={(id) => showToast(`${id} topology node selected`)}
+                  onSelect={(node) => setSelectedNode(node)}
                   onRefresh={() => showToast('Topology synchronized')}
                   onFullscreen={() => showToast('Fullscreen topology view is ready')}
                 />

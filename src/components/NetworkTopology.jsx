@@ -3,19 +3,44 @@ import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
+import { useMeshTelemetry } from '../services/telemetryService';
 
 const { FiMaximize2, FiMoreHorizontal, FiRadio, FiRefreshCw } = FiIcons;
 
-const topologyNodes = [
-  { id: 'north', label: 'North', x: 49, y: 18, load: '68%' },
-  { id: 'west', label: 'West', x: 19, y: 48, load: '54%' },
-  { id: 'core', label: 'Core', x: 49, y: 53, load: '42%', core: true },
-  { id: 'east', label: 'East', x: 79, y: 43, load: '89%', warning: true },
-  { id: 'south', label: 'South', x: 54, y: 82, load: '37%' }
-];
+// Base coordinates for primary infrastructure
+const baseCoordinates = {
+  'AX-CORE-01': { x: 49, y: 53, core: true },
+  'AX-NORTH-04': { x: 49, y: 18 },
+  'AX-WEST-07': { x: 19, y: 48 },
+  'AX-EAST-12': { x: 79, y: 43, warning: true },
+  'AX-SOUTH-09': { x: 54, y: 82 }
+};
+
+// Generate random orbit coordinates for new nodes
+const generateOrbit = (index) => {
+  const angle = (index * 137.5) * (Math.PI / 180); // Golden ratio angle
+  const radius = 35 + (index % 3) * 5; // Orbit radii
+  return {
+    x: Math.max(5, Math.min(95, 49 + Math.cos(angle) * radius)),
+    y: Math.max(5, Math.min(95, 53 + Math.sin(angle) * radius))
+  };
+};
 
 function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
+  const { nodes } = useMeshTelemetry();
   const [refreshed, setRefreshed] = useState(false);
+
+  const topologyNodes = nodes.map((node, i) => {
+    const coords = baseCoordinates[node.id] || generateOrbit(i);
+    return {
+      ...node,
+      x: coords.x,
+      y: coords.y,
+      core: coords.core || false,
+      warning: node.status === 'Warning' || coords.warning,
+      label: node.id.replace('AX-', '')
+    };
+  });
 
   const refresh = () => {
     setRefreshed(true);
@@ -44,19 +69,27 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
       </div>
       <div className="topology-canvas">
         <svg className="mesh-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <line x1="49" y1="18" x2="49" y2="53" />
-          <line x1="19" y1="48" x2="49" y2="53" />
-          <line x1="49" y1="53" x2="79" y2="43" className="warning-line" />
-          <line x1="49" y1="53" x2="54" y2="82" />
-          <line x1="19" y1="48" x2="54" y2="82" className="subtle-line" />
-          <line x1="49" y1="18" x2="79" y2="43" className="subtle-line" />
+          {topologyNodes.map((node) => {
+            if (node.core) return null;
+            const coreNode = topologyNodes.find(n => n.core) || { x: 49, y: 53 };
+            return (
+              <line
+                key={`line-${node.id}`}
+                x1={node.x}
+                y1={node.y}
+                x2={coreNode.x}
+                y2={coreNode.y}
+                className={node.warning ? 'warning-line' : 'subtle-line'}
+              />
+            );
+          })}
         </svg>
         {topologyNodes.map((node, index) => (
           <motion.button
             key={node.id}
             className={`mesh-node ${node.core ? 'core' : ''} ${node.warning ? 'warning' : ''} ${selected === node.id ? 'selected' : ''}`}
             style={{ left: `${node.x}%`, top: `${node.y}%` }}
-            onClick={() => onSelect(node.id)}
+            onClick={() => onSelect(node)}
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 + index * 0.08 }}
