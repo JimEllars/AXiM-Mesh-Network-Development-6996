@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
+import { useMeshTelemetry } from '../services/telemetryService';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { nodes } from '../data/networkData';
+
 
 const { FiChevronRight, FiSliders } = FiIcons;
 
 function NodeTable({ search, onSelectNode }) {
+  const { nodes } = useMeshTelemetry();
   const [warningsOnly, setWarningsOnly] = useState(false);
   const filteredNodes = useMemo(() => nodes.filter((node) => {
     const matchesSearch = `${node.id} ${node.region}`.toLowerCase().includes(search.toLowerCase());

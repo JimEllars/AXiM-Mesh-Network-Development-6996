@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
-import '../gateway-health.css';
+import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 
 const gateways = [
   {
@@ -190,4 +190,11 @@ function DetailBar({ label, value, tone }) {
   );
 }
 
-export default GatewayHealthComparison;
+
+const GatewayHealthComparisonWithErrorBoundary = (props) => (
+  <ComponentErrorBoundary>
+    <GatewayHealthComparison {...props} />
+  </ComponentErrorBoundary>
+);
+
+export default GatewayHealthComparisonWithErrorBoundary;

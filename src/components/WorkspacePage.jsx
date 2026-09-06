@@ -6,8 +6,9 @@ import NodeLoadTrends from './NodeLoadTrends';
 import GatewayHealthComparison from './GatewayHealthComparison';
 import GatewayFailoverPlanner from './GatewayFailoverPlanner';
 import GatewayCapacityForecast from './GatewayCapacityForecast';
-import { nodes } from '../data/networkData';
-import { loadSecurityEvents, securityEventsStorageKey } from '../data/securityEvents';
+import { useMeshTelemetry } from '../services/telemetryService';
+
+
 
 const pageContent = {
   topology: {
@@ -39,12 +40,22 @@ const pageContent = {
 const trafficBars = [42, 58, 48, 70, 63, 77, 68, 88, 72, 94, 81, 86];
 
 function WorkspacePage({ page, onToast }) {
+  const { nodes, securityEvents } = useMeshTelemetry();
+
   const content = pageContent[page];
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [events, setEvents] = useState(loadSecurityEvents);
+  const [events, setEvents] = useState(securityEvents || []);
 
   useEffect(() => {
-    window.localStorage.setItem(securityEventsStorageKey, JSON.stringify(events));
+    if (securityEvents) {
+      setEvents(current => current.length === 0 ? securityEvents : current);
+    }
+  }, [securityEvents]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('axim-security-events', JSON.stringify(events));
+    }
   }, [events]);
 
   const openEvents = useMemo(

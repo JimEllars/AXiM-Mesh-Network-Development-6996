@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
 import NodeTrendChart from './NodeTrendChart';
-import { nodes } from '../data/networkData';
-import '../node-trends.css';
+import { useMeshTelemetry } from '../services/telemetryService';
+
 
 const ranges = {
   '12 hours': {
@@ -32,6 +32,8 @@ function buildTrend(node, range, tick) {
 }
 
 function NodeLoadTrends() {
+  const { nodes } = useMeshTelemetry();
+
   const [range, setRange] = useState('12 hours');
   const [selectedNodeId, setSelectedNodeId] = useState(nodes[0].id);
   const [live, setLive] = useState(true);
