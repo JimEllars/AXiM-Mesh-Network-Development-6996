@@ -79,8 +79,88 @@ export const emitTelemetryEvent = (event) => {
 
 export const registerNode = (nodeData) => {
   _nodes = [..._nodes, nodeData];
-  emitTelemetryEvent({ type: 'node_register', data: nodeData });
+
+  if (isEdgeReady) {
+    fetch(`${edgeWorkerUrl}/api/nodes/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nodeData)
+    }).catch(() => {
+      emitTelemetryEvent({ type: 'node_register', data: nodeData });
+    });
+  } else {
+    emitTelemetryEvent({ type: 'node_register', data: nodeData });
+  }
+
   notifyListeners();
+};
+
+export const forceSyncTelemetry = async () => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const start = Date.now();
+    const response = await fetch(`${edgeWorkerUrl}/api/health`, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      isEdgeReady = true;
+
+      // Fetch nodes from edge and merge
+      try {
+        const nodesResponse = await fetch(`${edgeWorkerUrl}/api/nodes`, { method: 'GET' });
+        if (nodesResponse.ok) {
+          const { nodes } = await nodesResponse.json();
+          if (nodes && nodes.length > 0) {
+            let updated = false;
+            nodes.forEach(edgeNode => {
+              if (!_nodes.find(n => n.id === edgeNode.id)) {
+                _nodes = [..._nodes, edgeNode];
+                updated = true;
+              }
+            });
+            if (updated) notifyListeners();
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching edge nodes:', err);
+      }
+
+      // Try to flush buffer
+      if (localBuffer.length > 0) {
+        const eventsToSync = [...localBuffer];
+        const normalEvents = eventsToSync.filter(e => e.type !== 'node_register');
+        const registerEvents = eventsToSync.filter(e => e.type === 'node_register');
+
+        // Handle normal events
+        if (normalEvents.length > 0) {
+          const flushResponse = await fetch(`${edgeWorkerUrl}/api/telemetry/ingest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ events: normalEvents })
+          });
+        }
+
+        // Handle node register events
+        for (const ev of registerEvents) {
+          await fetch(`${edgeWorkerUrl}/api/nodes/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ev.data)
+          }).catch(e => console.error(e));
+        }
+
+        localBuffer = [];
+        saveBuffer();
+      }
+
+      return { ok: true, latency: Date.now() - start, queuedCount: localBuffer.length };
+    }
+  } catch (e) {
+    isEdgeReady = false;
+    return { ok: false };
+  }
+  return { ok: false };
 };
 
 export const updateSecurityEvents = (updater) => {
@@ -170,26 +250,12 @@ export const useTelemetryStatus = () => {
     let interval;
 
     const checkHealthAndFlush = async () => {
-      try {
-        const { response, latency } = await fetchWithBackoff(`${edgeWorkerUrl}/api/health`, { method: 'GET' });
+      const result = await forceSyncTelemetry();
+      if (result && result.ok) {
         setIsConnected(true);
-        setLatencyMs(latency);
+        setLatencyMs(result.latency);
         setLastSyncTime(new Date().toISOString());
-
-        // Try to flush buffer
-        if (localBuffer.length > 0) {
-          const eventsToSync = [...localBuffer];
-          const flushResponse = await fetch(`${edgeWorkerUrl}/api/telemetry/ingest`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ events: eventsToSync })
-          });
-          if (flushResponse.ok) {
-            localBuffer = [];
-            saveBuffer();
-          }
-        }
-      } catch (e) {
+      } else {
         setIsConnected(false);
       }
       setQueuedCount(localBuffer.length);
