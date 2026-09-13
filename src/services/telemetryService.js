@@ -43,15 +43,21 @@ const pushToBuffer = (event) => {
 };
 
 export const subscribeToMeshTelemetry = (onNodeUpdate, onSecurityEvent) => {
-  const channel = supabase
-    .channel('mesh-telemetry')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'mesh_nodes' }, (payload) => {
-      if (onNodeUpdate) onNodeUpdate(payload.new);
-    })
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mesh_security_events' }, (payload) => {
-      if (onSecurityEvent) onSecurityEvent(payload.new);
-    })
-    .subscribe();
+  const channel = supabase.channel('mesh-telemetry');
+
+  if (onNodeUpdate) {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'mesh_nodes' }, (payload) => {
+      onNodeUpdate(payload.new);
+    });
+  }
+
+  if (onSecurityEvent) {
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mesh_security_events' }, (payload) => {
+      onSecurityEvent(payload.new);
+    });
+  }
+
+  channel.subscribe();
 
   return () => {
     supabase.removeChannel(channel);
@@ -62,6 +68,22 @@ let _activity = [...initialActivity];
 let _nodes = [...initialNodes];
 let _securityEvents = loadSecurityEvents();
 let listeners = new Set();
+
+let telemetryUnsubscribe = null;
+if (typeof window !== 'undefined') {
+  telemetryUnsubscribe = subscribeToMeshTelemetry(
+    (newNodeData) => {
+      _nodes = _nodes.map(n => n.id === newNodeData.id ? { ...n, ...newNodeData } : n);
+      if (!_nodes.find(n => n.id === newNodeData.id)) {
+        _nodes = [..._nodes, newNodeData];
+      }
+      notifyListeners();
+    },
+    (newEventData) => {
+      updateSecurityEvents(current => [newEventData, ...current]);
+    }
+  );
+}
 
 const notifyListeners = () => {
   listeners.forEach(listener => listener());
@@ -100,15 +122,26 @@ export const forceSyncTelemetry = async () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     const start = Date.now();
-    const response = await fetch(`${edgeWorkerUrl}/api/health`, { method: 'GET', signal: controller.signal });
+    const response = await fetch(`${edgeWorkerUrl}/api/telemetry/health`, { method: 'GET', signal: controller.signal }).catch(() => ({ ok: false }));
     clearTimeout(timeoutId);
 
-    if (response.ok) {
+    if (response && response.ok) {
       isEdgeReady = true;
+      let edgeColo = 'LOCAL';
+      try {
+        const data = await response.clone().json();
+        edgeColo = data.edgeColo || 'LOCAL';
+      } catch (e) {
+        // ignore
+      }
+
 
       // Fetch nodes from edge and merge
       try {
-        const nodesResponse = await fetch(`${edgeWorkerUrl}/api/nodes`, { method: 'GET' });
+        const nodesController = new AbortController();
+        const nodesTimeout = setTimeout(() => nodesController.abort(), 5000);
+        const nodesResponse = await fetch(`${edgeWorkerUrl}/api/nodes`, { method: 'GET', signal: nodesController.signal });
+        clearTimeout(nodesTimeout);
         if (nodesResponse.ok) {
           const { nodes } = await nodesResponse.json();
           if (nodes && nodes.length > 0) {
@@ -134,27 +167,43 @@ export const forceSyncTelemetry = async () => {
 
         // Handle normal events
         if (normalEvents.length > 0) {
-          const flushResponse = await fetch(`${edgeWorkerUrl}/api/telemetry/ingest`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ events: normalEvents })
-          });
+          try {
+            const ingestController = new AbortController();
+            const ingestTimeout = setTimeout(() => ingestController.abort(), 5000);
+            await fetch(`${edgeWorkerUrl}/api/telemetry/ingest`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ events: normalEvents }),
+              signal: ingestController.signal
+            });
+            clearTimeout(ingestTimeout);
+          } catch (e) {
+            // Ignore error so we don't break the loop
+          }
         }
 
         // Handle node register events
         for (const ev of registerEvents) {
-          await fetch(`${edgeWorkerUrl}/api/nodes/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ev.data)
-          }).catch(e => console.error(e));
+          try {
+            const regController = new AbortController();
+            const regTimeout = setTimeout(() => regController.abort(), 5000);
+            await fetch(`${edgeWorkerUrl}/api/nodes/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(ev.data),
+              signal: regController.signal
+            }).catch(() => {});
+            clearTimeout(regTimeout);
+          } catch (e) {
+            // ignore
+          }
         }
 
         localBuffer = [];
         saveBuffer();
       }
 
-      return { ok: true, latency: Date.now() - start, queuedCount: localBuffer.length };
+      return { ok: true, latency: Date.now() - start, queuedCount: localBuffer.length, edgeColo };
     }
   } catch (e) {
     isEdgeReady = false;
@@ -194,24 +243,8 @@ export const useMeshTelemetry = () => {
     return () => listeners.delete(listener);
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToMeshTelemetry(
-      (newNodeData) => {
-        _nodes = _nodes.map(n => n.id === newNodeData.id ? { ...n, ...newNodeData } : n);
-        if (!_nodes.find(n => n.id === newNodeData.id)) {
-          _nodes = [..._nodes, newNodeData];
-        }
-        notifyListeners();
-      },
-      (newEventData) => {
-        updateSecurityEvents(current => [newEventData, ...current]);
-      }
-    );
+  // Create the subscription globally, not inside the hook, to prevent multi-subscribes
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
 
   return {
     ...state,
@@ -224,6 +257,7 @@ export const useTelemetryStatus = () => {
   const [latencyMs, setLatencyMs] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState(new Date().toISOString());
   const [queuedCount, setQueuedCount] = useState(localBuffer.length);
+  const [edgeColo, setEdgeColo] = useState('LOCAL');
 
   const transportMode = isConnected ? 'edge' : 'buffer';
 
@@ -249,20 +283,29 @@ export const useTelemetryStatus = () => {
   useEffect(() => {
     let interval;
 
+    let timeoutId;
+
     const checkHealthAndFlush = async () => {
-      const result = await forceSyncTelemetry();
-      if (result && result.ok) {
-        setIsConnected(true);
-        setLatencyMs(result.latency);
-        setLastSyncTime(new Date().toISOString());
-      } else {
+      try {
+        const result = await forceSyncTelemetry();
+        if (result && result.ok) {
+          setIsConnected(true);
+          setLatencyMs(result.latency);
+          setLastSyncTime(new Date().toISOString());
+          if (result.edgeColo) setEdgeColo(result.edgeColo);
+        } else {
+          setIsConnected(false);
+        }
+      } catch (e) {
         setIsConnected(false);
+      } finally {
+        setQueuedCount(localBuffer.length);
+        const nextInterval = Math.floor(Math.random() * (45000 - 30000 + 1)) + 30000;
+        timeoutId = setTimeout(checkHealthAndFlush, nextInterval);
       }
-      setQueuedCount(localBuffer.length);
     };
 
     checkHealthAndFlush();
-    interval = setInterval(checkHealthAndFlush, 5000);
 
     // Periodically update queued count if buffer changes from other sources
     const bufferCheckInterval = setInterval(() => {
@@ -270,12 +313,12 @@ export const useTelemetryStatus = () => {
     }, 1000);
 
     return () => {
-      clearInterval(interval);
+      if (timeoutId) clearTimeout(timeoutId);
       clearInterval(bufferCheckInterval);
     };
   }, []);
 
-  return { isConnected, latencyMs, transportMode, lastSyncTime, queuedCount };
+  return { isConnected, latencyMs, transportMode, lastSyncTime, queuedCount, edgeColo };
 };
 
 export const getNodes = () => initialNodes;
