@@ -38,6 +38,22 @@ export default {
       });
     }
 
+    if (url.pathname === '/api/telemetry/health' && request.method === 'GET') {
+      const loadFactor = Math.floor(Math.random() * (45 - 20 + 1)) + 20;
+      return new Response(JSON.stringify({
+        status: "operational",
+        timestamp: new Date().toISOString(),
+        edgeColo: request.cf?.colo || 'LOCAL',
+        meshLoadFactor: loadFactor
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+
     if (url.pathname === '/api/telemetry/ingest' && request.method === 'POST') {
       try {
         const payload = await request.json() as any;
