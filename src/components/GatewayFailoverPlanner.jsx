@@ -9,6 +9,8 @@ const gatewayOptions = [
   { name: 'Central Gateway', region: 'Central Hub', load: 42, latency: 3, clients: 684, status: 'Healthy' }
 ];
 
+import { useEffect } from 'react';
+
 function GatewayFailoverPlanner({ onToast }) {
   const [source, setSource] = useState('East Gateway');
   const [target, setTarget] = useState('North Gateway');
@@ -18,6 +20,20 @@ function GatewayFailoverPlanner({ onToast }) {
   const [completed, setCompleted] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
   const [approvedAt, setApprovedAt] = useState('');
+
+  useEffect(() => {
+    try {
+      const storedStr = localStorage.getItem('axim_active_failovers');
+      if (storedStr) {
+        const stored = JSON.parse(storedStr);
+        if (stored && stored.source && stored.target) {
+          setSource(stored.source);
+          setTarget(stored.target);
+          setCompleted(true);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
 
   const sourceGateway = gatewayOptions.find((gateway) => gateway.name === source);
   const targetGateway = gatewayOptions.find((gateway) => gateway.name === target);
@@ -64,6 +80,9 @@ function GatewayFailoverPlanner({ onToast }) {
     window.setTimeout(() => {
       setRunning(false);
       setCompleted(true);
+      try {
+        localStorage.setItem('axim_active_failovers', JSON.stringify({ source, target, timestamp: new Date().toISOString() }));
+      } catch (e) { /* ignore */ }
       emitTelemetryEvent({
         type: 'activity',
         data: {
@@ -83,6 +102,9 @@ function GatewayFailoverPlanner({ onToast }) {
     setCompleted(false);
     setApprovalNote('');
     setApprovedAt('');
+    try {
+      localStorage.removeItem('axim_active_failovers');
+    } catch(e) { /* ignore */ }
   };
 
   return (
