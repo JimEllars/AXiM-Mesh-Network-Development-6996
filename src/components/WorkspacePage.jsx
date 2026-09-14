@@ -132,7 +132,19 @@ function WorkspacePage({ page, onToast }) {
         </>
       )}
 
-      {page === 'traffic' && (
+      {page === 'traffic' && (() => {
+        const totalClients = nodes.reduce((sum, n) => sum + (n.clients || 0), 0);
+        // Base throughput calculation derived dynamically
+        const baseGbps = 8.42;
+        const dynamicGbps = totalClients > 0 ? (baseGbps * (totalClients / 1500)).toFixed(2) : baseGbps;
+
+        // Dynamically adjust bandwidth split slightly based on online nodes count
+        const activeNodes = nodes.filter(n => n.status === 'Online').length;
+        const meshDataPct = Math.min(80, Math.max(50, 64 + Math.floor((activeNodes - 200) / 10)));
+        const controlPlanePct = Math.min(20, Math.max(5, 9 + Math.floor((250 - activeNodes) / 20)));
+        const clientTrafficPct = 100 - meshDataPct - controlPlanePct;
+
+        return (
         <div className="workspace-grid traffic-layout">
           <section className="panel workspace-panel">
             <PanelTitle title="Throughput over the last 12 hours" eyebrow="Live telemetry" />
@@ -144,20 +156,23 @@ function WorkspacePage({ page, onToast }) {
                 </div>
               ))}
             </div>
+            <div style={{ marginTop: '1rem', color: '#9ca3af', fontSize: '0.8rem', textAlign: 'center' }}>
+               Total Connected Clients: {totalClients.toLocaleString()}
+            </div>
           </section>
           <section className="panel workspace-panel">
             <PanelTitle title="Traffic split" eyebrow="By protocol" />
             <div className="traffic-split">
-              <div className="donut-chart"><strong>8.42</strong><small>Gbps</small></div>
+              <div className="donut-chart"><strong>{dynamicGbps}</strong><small>Gbps</small></div>
               <div className="split-list">
-                <span><i className="lime-dot" /> Mesh data <b>64%</b></span>
-                <span><i className="blue-dot" /> Client traffic <b>27%</b></span>
-                <span><i className="violet-dot" /> Control plane <b>9%</b></span>
+                <span><i className="lime-dot" /> Mesh data <b>{meshDataPct}%</b></span>
+                <span><i className="blue-dot" /> Client traffic <b>{clientTrafficPct}%</b></span>
+                <span><i className="violet-dot" /> Control plane <b>{controlPlanePct}%</b></span>
               </div>
             </div>
           </section>
         </div>
-      )}
+      )})()}
 
       {page === 'security' && (
         <div className="workspace-grid security-layout">

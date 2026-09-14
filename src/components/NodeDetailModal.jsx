@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 import SafeIcon from '../common/SafeIcon';
@@ -6,6 +6,14 @@ import { emitTelemetryEvent } from '../services/telemetryService';
 
 function NodeDetailModal({ node, onClose }) {
   const [activeTab, setActiveTab] = useState('telemetry');
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
   const [pingStatus, setPingStatus] = useState('');
 
   if (!node) return null;

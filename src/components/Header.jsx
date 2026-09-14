@@ -12,7 +12,7 @@ function Header({ onMenuOpen, onDeploy, search, onSearch, onNotifications, user 
   const [toastMessage, setToastMessage] = React.useState('');
 
   const handleLogout = () => {
-    // In a real implementation this might delete cookies or make an API call
+    sessionStorage.removeItem('axim_user_session');
     window.location.href = 'https://passport.axim.us.com/logout?redirect=https://mesh.axim.us.com';
   };
 

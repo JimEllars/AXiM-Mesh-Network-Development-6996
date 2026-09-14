@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
 import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
+import { emitTelemetryEvent } from '../services/telemetryService';
 
 const gateways = [
   { name: 'Central Gateway', region: 'Central Hub', load: 42, capacity: 82, clients: 684, color: 'lime' },
@@ -58,6 +59,14 @@ function GatewayCapacityForecast({ onToast }) {
 
   const applyRecommendation = () => {
     setRecommendationApplied(true);
+    emitTelemetryEvent({
+      type: 'activity',
+      data: {
+        title: `Capacity scaling queued for ${gateway.name}`,
+        meta: `Shifted 12% client load · Just now`,
+        type: 'info'
+      }
+    });
     onToast?.(`${gateway.name} scaling recommendation queued`);
   };
 

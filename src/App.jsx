@@ -42,6 +42,18 @@ function App() {
   // Phase B: Passport Session Gating
   useEffect(() => {
     const authenticate = async () => {
+      const sessionStr = sessionStorage.getItem('axim_user_session');
+      if (sessionStr) {
+        try {
+          const userData = JSON.parse(sessionStr);
+          if (userData && userData.name) {
+            setUser(userData);
+            setIsAuthenticating(false);
+            return;
+          }
+        } catch (e) { /* ignore parse error */ }
+      }
+
       setIsAuthenticating(true);
 
       const urlParams = new URLSearchParams(window.location.search);
@@ -61,6 +73,7 @@ function App() {
             const allowedRoles = ['network', 'operations', 'admin', 'super_user'];
             if (allowedRoles.includes(userData.role)) {
                setUser(userData);
+               sessionStorage.setItem('axim_user_session', JSON.stringify(userData));
                // Clean up URL
                window.history.replaceState({}, document.title, '/');
             } else {
@@ -82,15 +95,21 @@ function App() {
       if (hasSessionCookie) {
         // In a real scenario, we might re-verify with the backend,
         // but for now assume a dummy valid user if the cookie exists
-        setUser({ name: 'James Ellars', role: 'super_user' });
+        const mockUser = { name: 'James Ellars', role: 'super_user' };
+        setUser(mockUser);
+        sessionStorage.setItem('axim_user_session', JSON.stringify(mockUser));
       } else if (process.env.NODE_ENV !== 'development' && window.location.pathname !== '/auth/callback') {
         // Mock redirect logic for dev environments, actual will redirect to passport
         // window.location.href = 'https://passport.axim.us.com/login?redirect=https://mesh.axim.us.com/auth/callback';
 
         // For development purpose, if not authed, assign a mock user:
-        setUser({ name: 'James Ellars', role: 'super_user' });
+        const mockUser = { name: 'James Ellars', role: 'super_user' };
+        setUser(mockUser);
+        sessionStorage.setItem('axim_user_session', JSON.stringify(mockUser));
       } else {
-         setUser({ name: 'James Ellars', role: 'super_user' });
+         const mockUser = { name: 'James Ellars', role: 'super_user' };
+        setUser(mockUser);
+        sessionStorage.setItem('axim_user_session', JSON.stringify(mockUser));
       }
 
       setIsAuthenticating(false);
