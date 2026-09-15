@@ -29,6 +29,7 @@ const generateOrbit = (index) => {
 function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
   const { nodes } = useMeshTelemetry();
   const [refreshed, setRefreshed] = useState(false);
+  const [hoveredLink, setHoveredLink] = useState(null);
 
   const topologyNodes = nodes.map((node, i) => {
     const coords = baseCoordinates[node.id] || generateOrbit(i);
@@ -79,11 +80,47 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
                 y1={node.y}
                 x2={coreNode.x}
                 y2={coreNode.y}
-                className={node.warning ? 'warning-line' : 'subtle-line'}
+                className={`${node.warning ? 'warning-line' : 'subtle-line'} ${hoveredLink?.id === node.id ? 'hovered-link' : ''}`}
+                onMouseEnter={() => setHoveredLink(node)}
+                onMouseLeave={() => setHoveredLink(null)}
+                style={{ strokeWidth: hoveredLink?.id === node.id ? 2 : 1, transition: 'all 0.3s' }}
               />
             );
           })}
         </svg>
+        {hoveredLink && !hoveredLink.core && (() => {
+          const coreNode = topologyNodes.find(n => n.core) || { x: 49, y: 53 };
+          const midX = (hoveredLink.x + coreNode.x) / 2;
+          const midY = (hoveredLink.y + coreNode.y) / 2;
+          return (
+            <motion.div
+              className="topology-tooltip"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{
+                position: 'absolute',
+                left: `${midX}%`,
+                top: `${midY}%`,
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(16, 24, 39, 0.95)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                color: 'white',
+                fontSize: '11px',
+                zIndex: 10,
+                pointerEvents: 'none',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#60a5fa' }}>Link: {hoveredLink.id} &lt;-&gt; Core</div>
+              <div>Latency: {hoveredLink.latency}</div>
+              <div>SNR: {hoveredLink.snr || '+9.2 dB'}</div>
+              <div>Status: {hoveredLink.status}</div>
+            </motion.div>
+          );
+        })()}
         {topologyNodes.map((node, index) => (
           <motion.button
             key={node.id}

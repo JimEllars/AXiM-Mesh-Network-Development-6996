@@ -217,6 +217,18 @@ export const updateSecurityEvents = (updater) => {
   if (typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem(securityEventsStorageKey, JSON.stringify(_securityEvents));
   }
+
+  const eventTrace = { type: 'security_event_update', data: _securityEvents, timestamp: new Date().toISOString() };
+  emitTelemetryEvent({ type: 'security_event_update', data: _securityEvents });
+
+  if (isEdgeReady) {
+    fetch(`${edgeWorkerUrl}/api/telemetry/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: [eventTrace] })
+    }).catch(() => {});
+  }
+
   notifyListeners();
 }
 
@@ -232,19 +244,64 @@ export const useMeshTelemetry = () => {
 
   useEffect(() => {
     const listener = () => {
+      const onlineNodes = _nodes.filter(n => n.status === 'Online');
+      const onlineCount = onlineNodes.length;
+      const totalNodes = _nodes.length;
+      const meshHealth = totalNodes > 0 ? ((onlineCount / totalNodes) * 100).toFixed(2) + '%' : '0.00%';
+      const totalClients = _nodes.reduce((sum, n) => sum + (n.clients || 0), 0);
+      const throughputGbps = ((totalClients * 4.5) / 1000).toFixed(2); // Mock throughput derivation
+
+      const dynamicMetrics = [
+        {
+          label: 'Active nodes',
+          value: onlineCount.toString(),
+          detail: `of ${totalNodes} total`,
+          change: 'Stable',
+          icon: 'Radio',
+          tone: 'lime'
+        },
+        {
+          label: 'Mesh health',
+          value: meshHealth,
+          detail: 'Current uptime',
+          change: 'Optimal',
+          icon: 'Heart',
+          tone: 'blue'
+        },
+        {
+          label: 'Throughput',
+          value: throughputGbps,
+          unit: 'Gbps',
+          detail: 'Estimated capacity',
+          change: 'Active',
+          icon: 'Zap',
+          tone: 'violet'
+        },
+        {
+          label: 'Active clients',
+          value: totalClients.toLocaleString(),
+          detail: 'across active nodes',
+          change: 'Tracking',
+          icon: 'Users',
+          tone: 'orange'
+        }
+      ];
+
       setState(prev => ({
         ...prev,
         nodes: _nodes,
+        metrics: dynamicMetrics,
         activity: _activity,
         securityEvents: _securityEvents
       }));
     };
+
+    // Call once to initialize dynamic metrics
+    listener();
+
     listeners.add(listener);
     return () => listeners.delete(listener);
   }, []);
-
-  // Create the subscription globally, not inside the hook, to prevent multi-subscribes
-
 
   return {
     ...state,
