@@ -131,6 +131,46 @@ export default {
       }
     }
 
+
+    if (url.pathname === '/api/v1/mesh/auth/verify-access' && request.method === 'POST') {
+      try {
+        const payload = await request.json() as any;
+        const { passToken, nodeId } = payload;
+
+        if (!passToken || !nodeId) {
+           return new Response(JSON.stringify({ authorized: false, reason: "Missing token or node ID" }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+
+        const passDataStr = await env.MESH_STATE_KV.get(`pass:${passToken}`);
+
+        if (passDataStr) {
+          const passData = JSON.parse(passDataStr);
+          // Assuming simple expiration check based on data.expiresAt or KV TTL handles it
+          return new Response(JSON.stringify({
+            authorized: true,
+            expiresAt: passData.expiresAt || new Date(Date.now() + 86400000).toISOString(),
+            tier: passData.tier || "daily"
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        } else {
+          return new Response(JSON.stringify({ authorized: false, reason: "Invalid or expired access pass" }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          });
+        }
+      } catch (e) {
+        return new Response(JSON.stringify({ authorized: false, reason: "Bad Request" }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    }
+
     if (url.pathname === '/api/v1/mesh/ingress' && request.method === 'POST') {
       return handleIngress(request, env);
     }

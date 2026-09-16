@@ -5,7 +5,7 @@ import SafeIcon from '../common/SafeIcon';
 import ComponentErrorBoundary from '../common/ComponentErrorBoundary';
 import { useMeshTelemetry } from '../services/telemetryService';
 
-const { FiMaximize2, FiMoreHorizontal, FiRadio, FiRefreshCw } = FiIcons;
+const { FiMaximize2, FiMoreHorizontal, FiRadio, FiRefreshCw, FiLayers } = FiIcons;
 
 // Base coordinates for primary infrastructure
 const baseCoordinates = {
@@ -30,6 +30,7 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
   const { nodes } = useMeshTelemetry();
   const [refreshed, setRefreshed] = useState(false);
   const [hoveredLink, setHoveredLink] = useState(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const topologyNodes = nodes.map((node, i) => {
     const coords = baseCoordinates[node.id] || generateOrbit(i);
@@ -60,6 +61,9 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
           <button aria-label="Refresh" onClick={refresh} className={refreshed ? 'spinning' : ''}>
             <SafeIcon icon={FiRefreshCw} />
           </button>
+          <button aria-label="Toggle Coverage" onClick={() => setShowHeatmap(!showHeatmap)} className={showHeatmap ? 'active' : ''} style={showHeatmap ? { color: 'var(--lime)', background: 'rgba(184, 243, 74, 0.1)' } : {}}>
+            <SafeIcon icon={FiLayers} />
+          </button>
           <button aria-label="Fullscreen" onClick={onFullscreen}>
             <SafeIcon icon={FiMaximize2} />
           </button>
@@ -70,6 +74,39 @@ function NetworkTopology({ selected, onSelect, onRefresh, onFullscreen }) {
       </div>
       <div className="topology-canvas">
         <svg className="mesh-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+
+          {showHeatmap && topologyNodes.map((node, idx) => {
+            let radius = '22%';
+            let fill = 'rgba(98, 168, 255, 0.06)';
+            let stroke = 'rgba(98, 168, 255, 0.2)';
+
+            if (node.core) {
+              radius = '28%';
+              fill = 'rgba(184, 243, 74, 0.08)';
+              stroke = 'rgba(184, 243, 74, 0.25)';
+            } else if (node.warning) {
+              radius = '18%';
+              fill = 'rgba(255, 172, 102, 0.08)';
+              stroke = 'rgba(255, 172, 102, 0.25)';
+            }
+
+            return (
+              <motion.circle
+                key={`heat-${node.id}`}
+                cx={node.x}
+                cy={node.y}
+                r={radius}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth="0.5"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0.4, 1, 0.4], scale: 1 }}
+                transition={{ duration: 3, repeat: Infinity, delay: idx * 0.2, ease: "easeInOut" }}
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
           {topologyNodes.map((node) => {
             if (node.core) return null;
             const coreNode = topologyNodes.find(n => n.core) || { x: 49, y: 53 };

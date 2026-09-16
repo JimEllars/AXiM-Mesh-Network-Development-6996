@@ -3,9 +3,9 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useTelemetryStatus, forceSyncTelemetry } from '../services/telemetryService';
 
-const { FiBell, FiCommand, FiMenu, FiPlus, FiSearch, FiLogOut, FiUser } = FiIcons;
+const { FiBell, FiCommand, FiMenu, FiPlus, FiSearch, FiLogOut, FiUser, FiCpu } = FiIcons;
 
-function Header({ onMenuOpen, onDeploy, search, onSearch, onNotifications, user }) {
+function Header({ onMenuOpen, onDeploy, onProvision, search, onSearch, onNotifications, user }) {
   const { isConnected, latencyMs, queuedCount, edgeColo, lastSyncTime } = useTelemetryStatus();
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
@@ -115,6 +115,10 @@ function Header({ onMenuOpen, onDeploy, search, onSearch, onNotifications, user 
           <i />
         </button>
 
+        <button className="secondary-button" onClick={onProvision} style={{ marginRight: '8px' }}>
+          <SafeIcon icon={FiCpu} />
+          Provision Device
+        </button>
         <button className="primary-button" onClick={onDeploy}>
           <SafeIcon icon={FiPlus} />
           Deploy node
