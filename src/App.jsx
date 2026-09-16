@@ -9,6 +9,7 @@ import NodeTable from './components/NodeTable';
 import DeployModal from './components/DeployModal';
 import NodeDetailModal from './components/NodeDetailModal';
 import DeploymentTracker from './components/DeploymentTracker';
+import DeviceProvisioningModal from './components/DeviceProvisioningModal';
 import WorkspacePage from './components/WorkspacePage';
 import { useMeshTelemetry } from './services/telemetryService';
 import './App.css';
@@ -22,6 +23,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
   const [deployOpen, setDeployOpen] = useState(false);
+  const [provisionOpen, setProvisionOpen] = useState(false);
   const [retryTarget, setRetryTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
@@ -194,6 +196,7 @@ function App() {
         <Header
           onMenuOpen={() => setSidebarOpen(true)}
           onDeploy={() => openDeployment()}
+          onProvision={() => setProvisionOpen(true)}
           search={search}
           onSearch={setSearch}
           onNotifications={() => showToast('3 security events need your attention')}
@@ -245,6 +248,10 @@ function App() {
           )}
         </div>
       </main>
+
+      {provisionOpen && (
+        <DeviceProvisioningModal onClose={() => setProvisionOpen(false)} />
+      )}
 
       {deployOpen && (
         <DeployModal
