@@ -382,3 +382,19 @@ export const getNodes = () => initialNodes;
 export const getMetrics = () => initialMetrics;
 export const getActivity = () => initialActivity;
 export const getSecurityEvents = loadSecurityEvents;
+
+export const verifyAccessPass = async (passToken, nodeId) => {
+  try {
+    const response = await fetch(`${edgeWorkerUrl}/api/v1/mesh/auth/verify-access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passToken, nodeId })
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+    return { authorized: false, reason: 'Request failed' };
+  } catch (error) {
+    return { authorized: false, reason: 'Network error' };
+  }
+};

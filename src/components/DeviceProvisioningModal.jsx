@@ -13,9 +13,24 @@ function DeviceProvisioningModal({ onClose }) {
   const [device, setDevice] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isFlashing, setIsFlashing] = useState(false);
+  const [flashedProfile, setFlashedProfile] = useState(defaultRFProfile);
 
-  const simulateScan = () => {
+  const simulateScan = async () => {
     setIsScanning(true);
+
+    try {
+      if (navigator.bluetooth) {
+        const btDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+        const idStr = btDevice.id ? btDevice.id.slice(-4).toUpperCase() : Math.floor(Math.random() * 900) + 100;
+        setDevice({ name: btDevice.name || 'Unknown BLE Device', id: `AX-NODE-${idStr}`, mac: 'BLE-MAC-UNKNOWN' });
+        setIsScanning(false);
+        return;
+      }
+    } catch (error) {
+      console.warn("Web Bluetooth failed or user cancelled, falling back to simulation.", error);
+    }
+
+    // Fallback
     setTimeout(() => {
       setDevice({ name: 'SenseCAP T1000', id: `AX-NODE-${Math.floor(Math.random() * 900) + 100}`, mac: '00:1A:2B:3C:4D:5E' });
       setIsScanning(false);
@@ -27,6 +42,18 @@ function DeviceProvisioningModal({ onClose }) {
     setTimeout(() => {
       setIsFlashing(false);
       setStep(3);
+
+      let currentProfile = { ...defaultRFProfile };
+      try {
+        const passDataStr = localStorage.getItem('axim_mesh_pass');
+        if (passDataStr) {
+          const passData = JSON.parse(passDataStr);
+          if (passData && passData.token) {
+            currentProfile.passToken = passData.token;
+          }
+        }
+      } catch (e) { /* ignore */ }
+      setFlashedProfile(currentProfile);
     }, 2500);
   };
 
@@ -38,7 +65,7 @@ function DeviceProvisioningModal({ onClose }) {
       load: 0,
       latency: '15 ms',
       clients: 0,
-      profile: defaultRFProfile
+      profile: flashedProfile
     };
     registerNode(newNode);
     emitTelemetryEvent({
