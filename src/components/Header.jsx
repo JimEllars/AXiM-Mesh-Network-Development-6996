@@ -5,7 +5,7 @@ import { useTelemetryStatus, forceSyncTelemetry } from '../services/telemetrySer
 
 const { FiBell, FiCommand, FiMenu, FiPlus, FiSearch, FiLogOut, FiUser, FiCpu } = FiIcons;
 
-function Header({ onMenuOpen, onDeploy, onProvision, search, onSearch, onNotifications, user }) {
+function Header({ onMenuOpen, onDeploy, onProvision, onAccessPass, search, onSearch, onNotifications, user }) {
   const { isConnected, latencyMs, queuedCount, edgeColo, lastSyncTime } = useTelemetryStatus();
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
@@ -106,7 +106,23 @@ function Header({ onMenuOpen, onDeploy, onProvision, search, onSearch, onNotific
           <div className="user-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px', background: 'rgba(255,255,255,0.1)', borderRadius: '20px' }}>
             <SafeIcon icon={FiUser} />
             <span style={{ fontSize: '0.85rem' }}>{user.name}</span>
-            <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#3b82f6', borderRadius: '4px', textTransform: 'uppercase' }}>{user.role}</span>
+            {(() => {
+              const isAdmin = user.role === 'super_user' || user.role === 'admin';
+              if (isAdmin) {
+                return <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#3b82f6', color: '#fff', borderRadius: '4px', textTransform: 'uppercase', border: '1px solid #10b981' }}>UNLIMITED OPERATOR</span>;
+              } else {
+                try {
+                  const passDataStr = localStorage.getItem('axim_mesh_pass');
+                  if (passDataStr) {
+                    const passData = JSON.parse(passDataStr);
+                    if (passData && passData.tier) {
+                      return <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#f59e0b', color: '#fff', borderRadius: '4px', textTransform: 'uppercase' }}>{passData.tier} PASS</span>;
+                    }
+                  }
+                } catch (e) { /* ignore */ }
+              }
+              return <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#3b82f6', borderRadius: '4px', textTransform: 'uppercase' }}>{user.role}</span>;
+            })()}
           </div>
         )}
 
@@ -115,6 +131,9 @@ function Header({ onMenuOpen, onDeploy, onProvision, search, onSearch, onNotific
           <i />
         </button>
 
+        <button className="secondary-button" onClick={onAccessPass} style={{ marginRight: '8px' }}>
+          Access Pass
+        </button>
         <button className="secondary-button" onClick={onProvision} style={{ marginRight: '8px' }}>
           <SafeIcon icon={FiCpu} />
           Provision Device

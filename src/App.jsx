@@ -11,6 +11,7 @@ import NodeDetailModal from './components/NodeDetailModal';
 import DeploymentTracker from './components/DeploymentTracker';
 import DeviceProvisioningModal from './components/DeviceProvisioningModal';
 import WorkspacePage from './components/WorkspacePage';
+import AccessPassModal from './components/AccessPassModal';
 import { useMeshTelemetry } from './services/telemetryService';
 import './App.css';
 import './functional.css';
@@ -24,6 +25,7 @@ function App() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [deployOpen, setDeployOpen] = useState(false);
   const [provisionOpen, setProvisionOpen] = useState(false);
+  const [accessPassOpen, setAccessPassOpen] = useState(false);
   const [retryTarget, setRetryTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
@@ -197,6 +199,7 @@ function App() {
           onMenuOpen={() => setSidebarOpen(true)}
           onDeploy={() => openDeployment()}
           onProvision={() => setProvisionOpen(true)}
+          onAccessPass={() => setAccessPassOpen(true)}
           search={search}
           onSearch={setSearch}
           onNotifications={() => showToast('3 security events need your attention')}
@@ -248,6 +251,10 @@ function App() {
           )}
         </div>
       </main>
+
+      {accessPassOpen && (
+        <AccessPassModal onClose={() => setAccessPassOpen(false)} />
+      )}
 
       {provisionOpen && (
         <DeviceProvisioningModal onClose={() => setProvisionOpen(false)} />
