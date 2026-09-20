@@ -6,7 +6,7 @@ import NodeLoadTrends from './NodeLoadTrends';
 import GatewayHealthComparison from './GatewayHealthComparison';
 import GatewayFailoverPlanner from './GatewayFailoverPlanner';
 import GatewayCapacityForecast from './GatewayCapacityForecast';
-import { useMeshTelemetry } from '../services/telemetryService';
+import { useMeshTelemetry, useMeshMessages } from '../services/telemetryService';
 
 
 
@@ -41,6 +41,8 @@ const trafficBars = [42, 58, 48, 70, 63, 77, 68, 88, 72, 94, 81, 86];
 
 function WorkspacePage({ page, onToast }) {
   const { nodes, securityEvents, updateSecurityEvents } = useMeshTelemetry();
+  const { messages, sendMeshMessage } = useMeshMessages();
+  const [chatInput, setChatInput] = useState('');
 
   const content = pageContent[page];
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -145,6 +147,7 @@ function WorkspacePage({ page, onToast }) {
         const clientTrafficPct = 100 - meshDataPct - controlPlanePct;
 
         return (
+        <>
         <div className="workspace-grid traffic-layout">
           <section className="panel workspace-panel">
             <PanelTitle title="Throughput over the last 12 hours" eyebrow="Live telemetry" />
@@ -172,6 +175,61 @@ function WorkspacePage({ page, onToast }) {
             </div>
           </section>
         </div>
+
+        <section className="panel workspace-panel" style={{ marginTop: '24px' }}>
+          <PanelTitle title="Live RF Chat Stream (#public)" eyebrow="Off-Grid Mesh Console" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', padding: '12px', background: '#0f141d', borderRadius: '8px', border: '1px solid #1f2937' }}>
+            {messages.map((msg) => (
+              <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: '#1a2230', padding: '10px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '12px' }}>{msg.callsign}</span>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '10px', color: '#9ca3af' }}>
+                    <span style={{ background: '#374151', padding: '2px 6px', borderRadius: '4px' }}>RSSI: {msg.rssi}dBm</span>
+                    <span style={{ background: '#374151', padding: '2px 6px', borderRadius: '4px' }}>SNR: {msg.snr}dB</span>
+                    <span style={{ background: '#374151', padding: '2px 6px', borderRadius: '4px' }}>Hops: {msg.hops}</span>
+                  </div>
+                </div>
+                <div style={{ color: '#e5e7eb', fontSize: '14px' }}>{msg.payload}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Transmit message via mesh..."
+              style={{ flex: 1, background: '#111721', border: '1px solid #374151', borderRadius: '6px', padding: '10px', color: '#fff', fontSize: '14px' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && chatInput.trim()) {
+                  let passData = null;
+                  try {
+                    passData = JSON.parse(localStorage.getItem('axim_mesh_pass'));
+                  } catch(err) { /* ignore */ }
+
+                  sendMeshMessage('#public', chatInput.trim(), passData?.token);
+                  setChatInput('');
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                if (chatInput.trim()) {
+                  let passData = null;
+                  try {
+                    passData = JSON.parse(localStorage.getItem('axim_mesh_pass'));
+                  } catch(err) { /* ignore */ }
+                  sendMeshMessage('#public', chatInput.trim(), passData?.token);
+                  setChatInput('');
+                }
+              }}
+              style={{ background: '#2563eb', color: 'white', padding: '0 24px', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+            >
+              TX
+            </button>
+          </div>
+        </section>
+        </>
       )})()}
 
       {page === 'security' && (

@@ -192,6 +192,7 @@ function App() {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         user={user}
+        onOpenPassModal={() => setAccessPassOpen(true)}
       />
 
       <main className="main-content">

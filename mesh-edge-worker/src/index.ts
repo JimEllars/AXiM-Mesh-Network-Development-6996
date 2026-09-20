@@ -189,25 +189,68 @@ export default {
 
 async function handleIngress(request: Request, env: Env): Promise<Response> {
   const signature = request.headers.get('X-Axim-Signature');
-  if (signature !== env.AXIM_INTERNAL_KEY) {
-    return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+
+  let payload: any;
+  try {
+    payload = await request.json();
+  } catch (err) {
+    return new Response('Bad Request', { status: 400, headers: corsHeaders });
+  }
+
+  const isEmergency = payload.channel === 'emergency';
+  const isInternal = signature === env.AXIM_INTERNAL_KEY;
+
+  if (!isEmergency && !isInternal) {
+    const passToken = payload.passToken;
+    if (!passToken) {
+      return new Response(JSON.stringify({ error: "Access pass required or expired", status: "rejected" }), {
+        status: 402,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    const passDataStr = await env.MESH_STATE_KV.get(`pass:${passToken}`);
+    if (!passDataStr) {
+      return new Response(JSON.stringify({ error: "Access pass required or expired", status: "rejected" }), {
+        status: 402,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    try {
+      const passData = JSON.parse(passDataStr);
+      if (passData.expiresAt && new Date(passData.expiresAt).getTime() < Date.now()) {
+        return new Response(JSON.stringify({ error: "Access pass required or expired", status: "rejected" }), {
+          status: 402,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+    } catch(e) {
+      return new Response(JSON.stringify({ error: "Access pass required or expired", status: "rejected" }), {
+        status: 402,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
   }
 
   try {
-    const payload: any = await request.json();
-
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
 
     if (payload.type === 'packet') {
       await supabase.from('mesh_packets').insert([payload.data]);
     }
 
+    // Record airtime metrics in MESH_STATE_KV
+    let relayedStr = await env.MESH_STATE_KV.get('metrics:packets_relayed');
+    let relayedCount = parseInt(relayedStr || '0', 10) + 1;
+    await env.MESH_STATE_KV.put('metrics:packets_relayed', relayedCount.toString());
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   } catch (err) {
-    return new Response('Bad Request', { status: 400, headers: corsHeaders });
+    return new Response('Internal Server Error', { status: 500, headers: corsHeaders });
   }
 }
 

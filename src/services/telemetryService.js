@@ -232,7 +232,69 @@ export const updateSecurityEvents = (updater) => {
   notifyListeners();
 }
 
+
+let _messages = [
+  { id: '1', channel: '#public', callsign: 'W7AW', payload: 'Testing new backbone route via SOTA repeater', rssi: -82, snr: 8.5, hops: 2, timestamp: new Date(Date.now() - 50000).toISOString() },
+  { id: '2', channel: '#public', callsign: 'K6XYZ', payload: 'Copy that. Signal strong in socal.', rssi: -71, snr: 12.0, hops: 3, timestamp: new Date(Date.now() - 30000).toISOString() }
+];
+
+export const sendMeshMessage = (channel, payload, passToken = null) => {
+  const newMsg = {
+    id: Math.random().toString(36).substring(2, 9),
+    channel,
+    callsign: 'OP-LOCAL',
+    payload,
+    rssi: -50,
+    snr: 15.0,
+    hops: 0,
+    timestamp: new Date().toISOString()
+  };
+
+  _messages = [..._messages, newMsg];
+
+  emitTelemetryEvent({
+    type: 'activity',
+    data: {
+      title: `Message transmitted on ${channel}`,
+      meta: 'Just now',
+      type: 'info'
+    }
+  });
+
+  if (isEdgeReady) {
+    const packet = {
+      type: 'packet',
+      channel,
+      passToken,
+      data: newMsg
+    };
+
+    fetch(`${edgeWorkerUrl}/api/v1/mesh/ingress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(packet)
+    }).catch(() => {});
+  }
+
+  notifyListeners();
+};
+
+export const useMeshMessages = () => {
+  const [messages, setMessages] = useState(_messages);
+
+  useEffect(() => {
+    const listener = () => {
+      setMessages([..._messages]);
+    };
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }, []);
+
+  return { messages, sendMeshMessage };
+};
+
 export const useMeshTelemetry = () => {
+
   const [state, setState] = useState({
     nodes: _nodes,
     metrics: initialMetrics,

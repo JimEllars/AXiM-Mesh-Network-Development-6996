@@ -50,6 +50,7 @@ function AccessPassModal({ onClose }) {
       };
 
       localStorage.setItem('axim_mesh_pass', JSON.stringify(passData));
+      window.dispatchEvent(new Event('axim_mesh_pass_updated'));
 
       emitTelemetryEvent({
         type: 'activity',
