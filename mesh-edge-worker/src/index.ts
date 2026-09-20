@@ -171,6 +171,39 @@ export default {
       }
     }
 
+
+    if (url.pathname === '/api/v1/mesh/dlq/flush' && request.method === 'POST') {
+      if (request.headers.get('X-Axim-Signature') !== env.AXIM_INTERNAL_KEY) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+
+      try {
+        const { keys } = await env.MESH_DLQ_KV.list();
+        let reprocessedCount = 0;
+        let remainingInDlq = keys.length;
+
+        for (const key of keys) {
+          const item = await env.MESH_DLQ_KV.get(key.name);
+          if (item) {
+            const payload = JSON.parse(item);
+            const success = await sendEmailItMessage(env, payload.to, payload.bcc, payload.subject, payload.html);
+            if (success) {
+              await env.MESH_DLQ_KV.delete(key.name);
+              reprocessedCount++;
+              remainingInDlq--;
+            }
+          }
+        }
+
+        return new Response(JSON.stringify({ success: true, reprocessedCount, remainingInDlq }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+      }
+    }
+
     if (url.pathname === '/api/v1/mesh/ingress' && request.method === 'POST') {
       return handleIngress(request, env);
     }

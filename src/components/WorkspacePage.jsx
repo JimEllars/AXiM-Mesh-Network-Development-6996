@@ -6,7 +6,7 @@ import NodeLoadTrends from './NodeLoadTrends';
 import GatewayHealthComparison from './GatewayHealthComparison';
 import GatewayFailoverPlanner from './GatewayFailoverPlanner';
 import GatewayCapacityForecast from './GatewayCapacityForecast';
-import { useMeshTelemetry, useMeshMessages } from '../services/telemetryService';
+import { useMeshTelemetry, useMeshMessages, useB2BSensors, updateSecurityEvents } from '../services/telemetryService';
 
 
 
@@ -42,6 +42,9 @@ const trafficBars = [42, 58, 48, 70, 63, 77, 68, 88, 72, 94, 81, 86];
 function WorkspacePage({ page, onToast }) {
   const { nodes, securityEvents, updateSecurityEvents } = useMeshTelemetry();
   const { messages, sendMeshMessage } = useMeshMessages();
+  const b2bSensors = useB2BSensors();
+  const [activeChannel, setActiveChannel] = React.useState('#public');
+  const channels = ['#public', '#testpage', '#cert', '#socal-sota', '#emergency'];
   const [chatInput, setChatInput] = useState('');
 
   const content = pageContent[page];
@@ -131,6 +134,27 @@ function WorkspacePage({ page, onToast }) {
               </div>
             ))}
           </section>
+
+          <section className="panel workspace-panel b2b-sensors" style={{ marginTop: '24px' }}>
+            <PanelTitle title="Commercial Remote Site Telemetry ($35–$75/site/mo)" eyebrow="B2B Sensor Monitor" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+              {b2bSensors.map(sensor => (
+                <div key={sensor.site} style={{ background: '#111721', border: '1px solid #1f2937', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ color: '#fff' }}>{sensor.site}</strong>
+                    <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', background: sensor.status === 'Alert' ? '#7f1d1d' : '#064e3b', color: sensor.status === 'Alert' ? '#fca5a5' : '#6ee7b7' }}>{sensor.status}</span>
+                  </div>
+                  <div style={{ color: '#9ca3af', fontSize: '13px' }}>{sensor.type}</div>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: '#d1d5db', marginTop: '4px' }}>
+                    {sensor.battery && <span style={{ background: '#1f2937', padding: '4px 8px', borderRadius: '4px' }}>Bat: {sensor.battery}</span>}
+                    {sensor.flow && <span style={{ background: '#1f2937', padding: '4px 8px', borderRadius: '4px' }}>Flow: {sensor.flow}</span>}
+                    {sensor.temp && <span style={{ background: '#1f2937', padding: '4px 8px', borderRadius: '4px' }}>Temp: {sensor.temp}</span>}
+                    {sensor.snr && <span style={{ background: '#1f2937', padding: '4px 8px', borderRadius: '4px' }}>SNR: {sensor.snr}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </>
       )}
 
@@ -177,9 +201,28 @@ function WorkspacePage({ page, onToast }) {
         </div>
 
         <section className="panel workspace-panel" style={{ marginTop: '24px' }}>
-          <PanelTitle title="Live RF Chat Stream (#public)" eyebrow="Off-Grid Mesh Console" />
+          <PanelTitle title={`Live RF Chat Stream (${activeChannel})`} eyebrow="Off-Grid Mesh Console" />
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            {channels.map(ch => (
+              <button
+                key={ch}
+                onClick={() => setActiveChannel(ch)}
+                style={{
+                  background: activeChannel === ch ? '#374151' : 'transparent',
+                  color: activeChannel === ch ? '#fff' : '#9ca3af',
+                  border: '1px solid #374151',
+                  borderRadius: '16px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                {ch}
+              </button>
+            ))}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', padding: '12px', background: '#0f141d', borderRadius: '8px', border: '1px solid #1f2937' }}>
-            {messages.map((msg) => (
+            {messages.filter(m => m.channel === activeChannel).map((msg) => (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: '#1a2230', padding: '10px', borderRadius: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '12px' }}>{msg.callsign}</span>
@@ -198,7 +241,7 @@ function WorkspacePage({ page, onToast }) {
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Transmit message via mesh..."
+              placeholder={`Transmit message on ${activeChannel}...`}
               style={{ flex: 1, background: '#111721', border: '1px solid #374151', borderRadius: '6px', padding: '10px', color: '#fff', fontSize: '14px' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && chatInput.trim()) {
@@ -207,7 +250,7 @@ function WorkspacePage({ page, onToast }) {
                     passData = JSON.parse(localStorage.getItem('axim_mesh_pass'));
                   } catch(err) { /* ignore */ }
 
-                  sendMeshMessage('#public', chatInput.trim(), passData?.token);
+                  sendMeshMessage(activeChannel, chatInput.trim(), passData?.token);
                   setChatInput('');
                 }
               }}
@@ -219,12 +262,13 @@ function WorkspacePage({ page, onToast }) {
                   try {
                     passData = JSON.parse(localStorage.getItem('axim_mesh_pass'));
                   } catch(err) { /* ignore */ }
-                  sendMeshMessage('#public', chatInput.trim(), passData?.token);
+                  sendMeshMessage(activeChannel, chatInput.trim(), passData?.token);
                   setChatInput('');
                 }
               }}
-              style={{ background: '#2563eb', color: 'white', padding: '0 24px', borderRadius: '6px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+              style={{ background: activeChannel === '#emergency' ? '#ef4444' : '#2563eb', color: 'white', padding: '0 24px', borderRadius: '6px', fontWeight: 'bold', border: activeChannel === '#emergency' ? '2px solid #b91c1c' : 'none', cursor: 'pointer', position: 'relative' }}
             >
+              {activeChannel === '#emergency' && <span className="pulse-dot" style={{ position: 'absolute', top: '-4px', right: '-4px', width: '10px', height: '10px', background: '#f87171', borderRadius: '50%' }} />}
               TX
             </button>
           </div>
