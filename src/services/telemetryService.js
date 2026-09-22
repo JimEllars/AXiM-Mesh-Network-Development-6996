@@ -440,6 +440,24 @@ export const useTelemetryStatus = () => {
   return { isConnected, latencyMs, transportMode, lastSyncTime, queuedCount, edgeColo };
 };
 
+
+const _b2bSensors = [
+  { site: 'Site Alpha', type: 'Perimeter Tripwire', status: 'Secure', battery: '4,080 mV', snr: '+8.2 dB', tone: 'lime' },
+  { site: 'Site Beta', type: 'Water Tank Level', status: '84% Capacity', flow: '12 L/min', snr: '+10.1 dB', tone: 'blue' },
+  { site: 'Site Gamma', type: 'Solar Array Voltage', status: '13.8V Charge', temp: '32°C', snr: '+9.5 dB', tone: 'lime' },
+  { site: 'Site Delta', type: 'Automated Gate Contact', status: 'Closed', snr: '+11.4 dB', tone: 'violet' }
+];
+
+export const useB2BSensors = () => {
+  const [sensors] = useState(_b2bSensors);
+  return sensors;
+};
+
+export const useSupabaseStatus = () => {
+  const [supabaseStatus, setSupabaseStatus] = useState('SUBSCRIBED');
+  return [supabaseStatus, setSupabaseStatus];
+};
+
 export const getNodes = () => initialNodes;
 export const getMetrics = () => initialMetrics;
 export const getActivity = () => initialActivity;

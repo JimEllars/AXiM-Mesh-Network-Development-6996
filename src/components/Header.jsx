@@ -1,12 +1,13 @@
 import React from 'react';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { useTelemetryStatus, forceSyncTelemetry } from '../services/telemetryService';
+import { useTelemetryStatus, forceSyncTelemetry, useSupabaseStatus } from '../services/telemetryService';
 
 const { FiBell, FiCommand, FiMenu, FiPlus, FiSearch, FiLogOut, FiUser, FiCpu } = FiIcons;
 
 function Header({ onMenuOpen, onDeploy, onProvision, onAccessPass, search, onSearch, onNotifications, user }) {
   const { isConnected, latencyMs, queuedCount, edgeColo, lastSyncTime } = useTelemetryStatus();
+  const [supabaseStatus] = useSupabaseStatus();
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
@@ -56,6 +57,9 @@ function Header({ onMenuOpen, onDeploy, onProvision, onAccessPass, search, onSea
           {showTooltip && (
              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: '0', background: '#1f2937', border: '1px solid #374151', borderRadius: '6px', padding: '12px', width: '220px', zIndex: 50, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                 <span style={{ color: '#9ca3af', fontSize: '0.75rem', gridColumn: 'span 2', paddingBottom: '4px', borderBottom: '1px solid #374151', marginBottom: '4px', fontWeight: 'bold' }}>Cloudflare Edge Worker</span>
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                  <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Status</span>
                  <span style={{ color: isConnected ? '#10b981' : '#f59e0b', fontSize: '0.75rem', fontWeight: 'bold' }}>{isConnected ? 'Edge Active' : 'Fallback Active'}</span>
                </div>
@@ -74,6 +78,17 @@ function Header({ onMenuOpen, onDeploy, onProvision, onAccessPass, search, onSea
                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                  <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Local Buffer</span>
                  <span style={{ color: '#e5e7eb', fontSize: '0.75rem' }}>{queuedCount} events</span>
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', marginTop: '12px' }}>
+                 <span style={{ color: '#9ca3af', fontSize: '0.75rem', gridColumn: 'span 2', paddingBottom: '4px', borderBottom: '1px solid #374151', marginBottom: '4px', fontWeight: 'bold' }}>Supabase Realtime</span>
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                 <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Status</span>
+                 <span style={{ color: supabaseStatus === 'SUBSCRIBED' ? '#10b981' : '#f59e0b', fontSize: '0.75rem', fontWeight: 'bold' }}>{supabaseStatus === 'SUBSCRIBED' ? 'Connected' : 'Offline'}</span>
+               </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                 <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Listener</span>
+                 <span style={{ color: '#e5e7eb', fontSize: '0.75rem' }}>postgres_changes</span>
                </div>
                <div style={{ marginTop: '12px', textAlign: 'center', borderTop: '1px solid #374151', paddingTop: '8px' }}>
                  <span style={{ color: '#60a5fa', fontSize: '0.7rem', cursor: 'pointer' }} onClick={handleForceSync}>
