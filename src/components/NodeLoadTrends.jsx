@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import SafeIcon from '../common/SafeIcon';
 import NodeTrendChart from './NodeTrendChart';
-import { useMeshTelemetry } from '../services/telemetryService';
+import { useMeshTelemetry, fetchMeshAnalytics } from '../services/telemetryService';
 
 
 const ranges = {
@@ -38,11 +38,32 @@ function NodeLoadTrends() {
   const [selectedNodeId, setSelectedNodeId] = useState(nodes[0].id);
   const [live, setLive] = useState(true);
   const [tick, setTick] = useState(0);
+  const [analyticsData, setAnalyticsData] = useState(null);
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) || nodes[0];
+  useEffect(() => {
+    let active = true;
+    const fetchAnalytics = async () => {
+      try {
+        const data = await fetchMeshAnalytics(range);
+        if (active && data && data.success) {
+          setAnalyticsData(data);
+        }
+      } catch (err) {
+        console.error('Error fetching analytics', err);
+      }
+    };
+    fetchAnalytics();
+  }, [range, tick]);
+
   const values = useMemo(
-    () => buildTrend(selectedNode, range, tick),
-    [selectedNode, range, tick]
+    () => {
+    if (analyticsData && analyticsData.dataBuckets) {
+      return analyticsData.dataBuckets.map(b => Math.round(b.dutyCyclePct));
+    }
+    return buildTrend(selectedNode, range, tick);
+  },
+    [selectedNode, range, tick, analyticsData]
   );
   const average = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
   const peak = Math.max(...values);
@@ -129,7 +150,7 @@ function NodeLoadTrends() {
 
       <NodeTrendChart
         values={values}
-        labels={ranges[range].labels}
+        labels={analyticsData?.dataBuckets ? analyticsData.dataBuckets.map(b => b.label) : ranges[range].labels}
         range={range}
       />
     </section>
