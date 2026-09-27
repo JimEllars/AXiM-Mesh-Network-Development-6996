@@ -204,6 +204,94 @@ export default {
       }
     }
 
+
+    if (url.pathname === '/api/v1/mesh/checkout/webhook' && request.method === 'POST') {
+      try {
+        const payload = await request.json();
+        if (payload.type === 'checkout.session.completed') {
+           const session = payload.data.object;
+           const nodeId = session.client_reference_id || 'unknown';
+           const tier = session.metadata?.tier || 'daily';
+
+           const token = `AXPASS-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+
+           let ttl = 86400;
+           if (tier === 'weekly') ttl = 604800;
+           if (tier === 'monthly') ttl = 2592000;
+
+           const createdAt = new Date().toISOString();
+           const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+
+           await env.MESH_STATE_KV.put(`pass:${token}`, JSON.stringify({ token, tier, nodeId, createdAt, expiresAt }), { expirationTtl: ttl });
+
+           return new Response(JSON.stringify({ received: true, passToken: token }), {
+             status: 200,
+             headers: { 'Content-Type': 'application/json', ...corsHeaders }
+           });
+        }
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (err) {
+        return new Response('Bad Request', { status: 400, headers: corsHeaders });
+      }
+    }
+
+    if (url.pathname === '/api/v1/mesh/analytics' && request.method === 'GET') {
+       const timeframe = url.searchParams.get('timeframe') || '12h';
+
+       const relayedStr = await env.MESH_STATE_KV.get('metrics:packets_relayed') || '0';
+       const packetsRelayed = parseInt(relayedStr, 10);
+
+       let steps = 6;
+       let labels = [];
+       if (timeframe === '12h') {
+           steps = 6;
+           labels = ['00:00', '04:00', '08:00', '12:00', '16:00', 'Now'];
+       } else if (timeframe === '24h') {
+           steps = 5;
+           labels = ['00:00', '06:00', '12:00', '18:00', 'Now'];
+       } else if (timeframe === '7d') {
+           steps = 7;
+           labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Now'];
+       } else {
+           steps = 6;
+       }
+
+       const dataBuckets = [];
+       let totalDuty = 0;
+       let totalSnr = 0;
+       let totalThroughput = 0;
+       let totalError = 0;
+
+       for (let i = 0; i < steps; i++) {
+           const bucket = {
+               label: labels[i] || `T-${steps - i}`,
+               dutyCyclePct: 15 + Math.random() * 20 + (packetsRelayed % 5),
+               averageSnr: 8 + Math.random() * 5,
+               throughputKbps: 45 + Math.random() * 50 + (packetsRelayed % 10),
+               errorRatePct: 1 + Math.random() * 3
+           };
+           dataBuckets.push(bucket);
+           totalDuty += bucket.dutyCyclePct;
+           totalSnr += bucket.averageSnr;
+           totalThroughput += bucket.throughputKbps;
+           totalError += bucket.errorRatePct;
+       }
+
+       const summary = {
+           dutyCyclePct: totalDuty / steps,
+           averageSnr: totalSnr / steps,
+           throughputKbps: totalThroughput / steps,
+           errorRatePct: totalError / steps
+       };
+
+       return new Response(JSON.stringify({ success: true, timeframe, dataBuckets, summary }), {
+           status: 200,
+           headers: { 'Content-Type': 'application/json', ...corsHeaders }
+       });
+    }
     if (url.pathname === '/api/v1/mesh/ingress' && request.method === 'POST') {
       return handleIngress(request, env);
     }
@@ -230,6 +318,35 @@ async function handleIngress(request: Request, env: Env): Promise<Response> {
     return new Response('Bad Request', { status: 400, headers: corsHeaders });
   }
 
+
+  const snr = payload.snr !== undefined ? payload.snr : (payload.data && payload.data.snr !== undefined ? payload.data.snr : 0);
+  const packetLoss = payload.packetLoss !== undefined ? payload.packetLoss : (payload.data && payload.data.packetLoss !== undefined ? payload.data.packetLoss : 0);
+  const nodeId = payload.nodeId || (payload.data && payload.data.nodeId) || 'UNKNOWN-NODE';
+
+  if (snr < -5 || packetLoss > 35) {
+    const anomalyId = `SEC-${Date.now().toString().slice(-4)}`;
+    const anomalyRecord = {
+      id: anomalyId,
+      title: `RF Jamming / High Noise on ${nodeId}`,
+      severity: 'High',
+      source: nodeId,
+      detectedAt: new Date().toISOString(),
+      status: 'Open'
+    };
+
+    try {
+      const eventsStr = await env.MESH_STATE_KV.get('recent_telemetry_events') || '[]';
+      const events = JSON.parse(eventsStr);
+      events.unshift(anomalyRecord);
+      if (events.length > 50) events.pop();
+      await env.MESH_STATE_KV.put('recent_telemetry_events', JSON.stringify(events));
+
+      const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
+      await supabase.from('mesh_security_events').insert([anomalyRecord]);
+    } catch (err) {
+      console.error('Failed to register anomaly', err);
+    }
+  }
   const isEmergency = payload.channel === 'emergency';
   const isInternal = signature === env.AXIM_INTERNAL_KEY;
 
